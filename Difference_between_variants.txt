@@ -1,0 +1,60 @@
+This file explain briefly the difference between already provided (NIST) SPHINCS+ variants:
+
+
+SLH-DSA / SPHINCS+ Variants Explained
+
+The variants differ mainly by:
+- security level
+- speed vs signature size tradeoff
+- hash function family
+
+
+1. Security level: 128 / 192 / 256
+
+Example:
+
+SLH-DSA-SHAKE-128s
+
+The number represents the target security category:
+
+- 128 → ~128-bit security (smallest and fastest)
+- 192 → ~192-bit security
+- 256 → ~256-bit security (strongest, largest, slower)
+
+Higher security means:
+- larger keys
+- larger signatures
+- more computation => potentially more work
+
+
+2. The meaning of "s" vs "f"
+
+Example:
+
+SHAKE-128s vs SHAKE-128f
+
+They use the same hash family and security level, but different parameter choices.
+
+"s" = small signatures
+
+- smaller signatures
+- slower signing
+
+"f" = fast
+
+- faster signing
+- larger signatures
+
+The tradeoff comes from how the hypertree is configured:
+- tree heights
+- FORS parameters
+- WOTS+ parameters
+- other SPHINCS+ parameters
+
+
+
+Only the parameters change:
+- security level
+- tree structure
+- signature size
+- performance tradeoffs

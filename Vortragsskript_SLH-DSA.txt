@@ -1,0 +1,170 @@
+VORTRAGSSKRIPT — SLH-DSA (SPHINCS+)
+====================================
+
+FOLIE 1 — Begrüßung
+--------------------
+Guten Tag zusammen. Ich bin der Mouheb, der ist Aziz.
+Unser Thema heute ist SLH-DSA, auch bekannt als SPHINCS+ — ein stateless,
+hashbasiertes Signaturverfahren.
+und ist im NIST-Standard FIPS 205 festgelegt.
+
+
+FOLIE 2 — Agenda
+-----------------
+Wir gehen heute neun Punkte durch.
+Erstens: Warum brauchen wir dieses Verfahren überhaupt?
+Zweitens: Was genau soll damit bewiesen werden — das Sicherheitsziel EU-CMA.
+Drittens: Warum reicht dafür eine reine Hashfunktion aus — dazu vergleichen wir
+Grover und Shor.
+Viertens: Welche Hashfunktion haben wir konkret gewählt — SHAKE256 oder SHA-2?
+Fünftens: Mit welchen Parametern arbeiten wir — die sechs NIST-Parametersätze.
+Sechstens: Wie ist das Verfahren insgesamt aufgebaut?
+Siebtens: Aus welchen Bausteinen besteht es — WOTS+, XMSS, FORS und der Hypertree.
+Achtens: Warum die Eigenschaft "stateless" so wichtig ist.
+Neuntens: Wie wir das Ganze selbst umgesetzt haben, inklusive Live-Demo.
+Ich, übernehme die ersten sieben Punkte bis zur Hashfunktionswahl.
+Danach übernimmt Aziz den Rest Parameter, Bausteine und unsere
+Implementierung.
+
+
+FOLIE 3 — Motivation: Warum ein neuer Signaturstandard?
+--------------------------------------------------------
+NIST hat nicht nur einen, sondern gleich drei Standards für Post-Quantum-
+Kryptographie verabschiedet.
+FIPS 203 ist ML-KEM, auch Kyber genannt — ein gitterbasiertes Verfahren zur
+Schlüsselkapselung.
+FIPS 204 ist ML-DSA, auch Dilithium genannt — ein gitterbasiertes Signatur-
+verfahren und die Standardwahl.
+FIPS 205 ist SLH-DSA, unser heutiges Thema — ein hashbasiertes Verfahren als
+konservative Rückfalloption.
+Das wirft eine Frage auf: Warum standardisiert man zwei Signaturverfahren
+gleichzeitig?
+Die Antwort liegt darin, dass ML-DSA und SLH-DSA auf völlig unterschiedlichen
+Härteannahmen beruhen.
+ML-DSA setzt auf Gitterprobleme, SLH-DSA dagegen nur auf reine Hash-Eigenschaften.
+Sollte eine dieser Annahmen später angreifbar werden, bleibt die andere bestehen.
+Zum Vergleich: Der Shor-Algorithmus bricht RSA und ECDSA auf einem Quanten-
+computer vollständig.
+Der Grund ist, dass beide Verfahren auf ein und derselben zahlentheoretischen
+Struktur beruhen — Faktorisierung beziehungsweise diskreter Logarithmus.
+Fällt diese eine Struktur, ist die gesamte Sicherheit verloren.
+
+
+
+
+FOLIE 4 — Sicherheitsziel: EU-CMA
+-----------------------------------
+
+Doch was genau muss ein Verfahren wie SLH-DSA eigentlich beweisen, um als
+sicher zu gelten?
+
+Das Sicherheitsziel von SLH-DSA nennt sich EU-CMA — Existential Unforgeability
+under Chosen-Message Attack.
+Ein Angreifer darf sich dabei beliebig viele Nachrichten signieren lassen,
+das ist der "Chosen-Message"-Teil.
+Trotzdem darf er für keine einzige neue Nachricht eine gültige Signatur fälschen
+können.
+"Existential" bedeutet: Schon eine einzige gefälschte Signatur irgendeiner Art
+genügt, damit das Schema als gebrochen gilt. Das ist eine sehr strenge
+Anforderung.
+Dahinter steckt ein formaler Reduktionsbeweis: Kann ein Angreifer SLH-DSA
+fälschen, kann er damit auch eine Hash-Eigenschaft brechen. Das ist bewiesen,
+keine Vermutung.
+Wichtig ist außerdem: Wir müssen keiner einzelnen Zahl vertrauen. Die Sicherheit
+hängt nur von drei Hash-Eigenschaften ab — Preimage-, Second-Preimage- und
+Kollisionsresistenz. Dazu kommen wir gleich auf Folie sechs.
+Ein weiterer Vorteil ist die Hash-Agilität: Wird die konkrete Hashfunktion
+irgendwann geschwächt, kann sie einfach ausgetauscht werden, ohne das gesamte
+Schema neu zu entwerfen.
+Zudem genügen als Angriffsmodell generische Angriffe: Gegen gute Hashfunktionen
+sind nur brute-force-artige Angriffe bekannt, keine strukturelle Abkürzung wie
+bei RSA.
+
+
+
+FOLIE 5 — Grundlage: Grover vs. Shor
+---------------------------------------
+Wir vergleichen zwei Quantenalgorithmen mit völlig unterschiedlichen
+Auswirkungen.
+Der Shor-Algorithmus bricht RSA und ECDSA.
+Er löst Faktorisierung und diskreten Logarithmus in polynomieller Zeit.
+Dabei nutzt er gezielt die mathematische Struktur der Zahlentheorie aus.
+Das Ergebnis ist ein exponentieller Bruch: Die Sicherheit ist komplett weg,
+unabhängig von der gewählten Schlüsselgröße. Ein größerer Schlüssel hilft hier
+nichts mehr.
+Der Grover-Algorithmus dagegen trifft Hashfunktionen.
+Er ist aber nur eine generische Suche und reduziert den Suchaufwand lediglich
+quadratisch.
+Es gibt keine bekannte strukturelle Abkürzung gegen gute Hashfunktionen.
+Konkret wird aus 2 hoch n nur 2 hoch n halbe — der Exponent wird lediglich
+halbiert, kein exponentieller Bruch wie bei Shor.
+Mit ausreichend großem Sicherheitsparameter n bleibt die Preimage-Suche
+praktisch unmöglich
+
+
+
+FOLIE 6 — Grundlage: Sicherheit ohne mathematisches Problem
+---------------------------------------------------------------
+Das heißt: Die gesamte Sicherheit von SLH-DSA steht und fällt mit drei ganz
+konkreten Eigenschaften der Hashfunktion.
+
+Erstens, die Preimage-Resistenz: Aus y gleich H von x lässt sich x nicht
+zurückrechnen. Sie ist die Grundlage jeder Ableitung von Geheimwerten, etwa
+SK_seed und SK_prf.
+Zweitens, die Second-Preimage-Resistenz: Zu einem gegebenen x1 findet man kein
+x2 ungleich x1 mit gleichem Hashwert. Sie schützt die Hashketten in WOTS+ vor
+Substitution.
+Drittens, die Kollisionsresistenz: Niemand findet irgendein Paar x1 und x2 mit
+demselben Hashwert. Sie schützt die Merkle-Bäume in XMSS und FORS vor
+gefälschten Pfaden.
+Wichtig dabei: Jede dieser drei Eigenschaften bedient einen anderen Baustein
+des Gesamtsystems. Darauf kommen wir bei den Bausteinen auf Folie zehn noch
+einmal zurück.
+
+FOLIE 7 — Umsetzung: Hashfunktionswahl SHAKE256
+---------------------------------------------------
+
+Jetzt welcge Hashfunktion haben wir für unsere Implementierung gewählt —
+und warum?
+
+FIPS 205 erlaubt laut Abschnitt 11 zwei mögliche Instanziierungen.
+SHA-2, also SHA-256 oder SHA-512, nutzt die Merkle-Damgård-Konstruktion mit
+fester Ausgabelänge von 32 beziehungsweise 64 Byte. Dafür braucht man
+zusätzlich MGF1 für variable Länge und HMAC für PRF-Sicherheit.
+SHAKE256 aus der SHA-3-Familie nutzt dagegen die Sponge-Konstruktion mit
+variabler Ausgabelänge — bei uns 16, 24 oder 32 Byte, je nach Parametersatz.
+Es liefert die variable Länge nativ und braucht kein HMAC, weil es gegen
+Length-Extension-Angriffe immun ist.
+Wir haben uns für SHAKE256 entschieden.
+Der erste Grund ist die native variable Ausgabelänge als eXtendable Output
+Function: Ein einziger Aufruf liefert direkt genau n oder m Byte, ohne
+zusätzlichen Code (bzw. damit verbundenen Sicherheitslücken) für alle sechs
+Parametersätze. Der zweite Grund ist die Immunität gegen Length-Extension: Die Sponge-
+Konstruktion erlaubt die PRF-Nutzung direkt, ganz ohne HMAC-Wrapper.
+Praktisch bedeutet das: Ein einziges Hash-Primitiv, SHAKE256, deckt in unserem
+Code alle benötigten Rollen ab — PRF, PRF_msg, H_msg, F, H und T. Das ist
+deutlich einfacher als eine gemischte Lösung aus SHA-2, HMAC und MGF1.
+
+
+
+
+
+
+
+
+
+
+
+
+
+PRF      → generate secret values
+
+PRF_msg  → generate R
+
+H_msg    → hash message into digest + indices
+
+F        → hash one value
+
+H        → hash two nodes together
+
+T        → compress many values into one
